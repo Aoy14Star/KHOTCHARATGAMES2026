@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>งานกีฬาคชรัตน์เกมส์ | ระบบแผนที่ที่พักและนำทางแต่ละวิทยาลัย จ.สุรินทร์</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Noto Sans Thai -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS for Interactive Map & Google/Dark Tile Layers -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', '"Noto Sans Thai"', 'sans-serif'],
+          },
+          colors: {
+            obsidian: '#0B0F19',
+            panel: '#111827',
+            cardDark: '#1E293B',
+            gold: '#F59E0B',
+            cyanGlow: '#06B6D4',
+          },
+          boxShadow: {
+            'dark-glow': '0 10px 30px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07)',
+            'gold-glow': '0 8px 24px -4px rgba(245, 158, 11, 0.28)',
+            'cyan-glow': '0 8px 24px -4px rgba(6, 182, 212, 0.28)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Thai', sans-serif;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Smooth Custom Scrollbar */
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.45);
+    }
+
+    /* Fluid Transitions */
+    .smooth-transition {
+      transition: all 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Custom Map Marker Styling */
+    .custom-pin-wrapper {
+      background: transparent;
+      border: none;
+    }
+
+    .marker-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(15, 23, 42, 0.94);
+      color: #F8FAFC;
+      backdrop-filter: blur(10px);
+      padding: 5.5px 12px 5.5px 9px;
+      border-radius: 9999px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+      white-space: nowrap;
+      transform: translate(-50%, -100%);
+      transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      cursor: pointer;
+      position: relative;
+    }
+
+    html:not(.dark) .marker-pill {
+      background: rgba(255, 255, 255, 0.96);
+      color: #0F172A;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.16), 0 0 0 1.5px #FFFFFF;
+    }
+
+    .marker-pill::after {
+      content: '';
+      position: absolute;
+      bottom: -5px;
+      left: 50%;
+      transform: translateX(-50%) rotate(45deg);
+      width: 10px;
+      height: 10px;
+      background: rgba(15, 23, 42, 0.94);
+      border-right: 1.5px solid rgba(255, 255, 255, 0.14);
+      border-bottom: 1.5px solid rgba(255, 255, 255, 0.14);
+      z-index: -1;
+    }
+
+    html:not(.dark) .marker-pill::after {
+      background: #FFFFFF;
+      border-color: rgba(15, 23, 42, 0.12);
+    }
+
+    .marker-pill:hover,
+    .marker-pill.active-pin {
+      transform: translate(-50%, -110%) scale(1.08);
+      z-index: 999 !important;
+      box-shadow: 0 12px 28px rgba(245, 158, 11, 0.35), 0 0 0 2px #F59E0B;
+    }
+
+    .marker-pill.active-pin {
+      background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+      color: #FFFFFF;
+    }
+
+    .marker-pill.active-pin::after {
+      background: #0F172A;
+      border-color: #F59E0B;
+    }
+
+    /* Main Venue Badge Pin */
+    .venue-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+      color: #0B0F19;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      font-weight: 700;
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.45), 0 0 0 2px #FEF3C7;
+      white-space: nowrap;
+      transform: translate(-50%, -100%);
+      cursor: pointer;
+    }
+
+    /* User GPS Pulsing Radar Dot */
+    .user-location-marker {
+      position: relative;
+      width: 26px;
+      height: 26px;
+      transform: translate(-50%, -50%);
+    }
+
+    .user-location-core {
+      width: 16px;
+      height: 16px;
+      background: #06B6D4;
+      border: 3px solid #FFFFFF;
+      border-radius: 9999px;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.9);
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      z-index: 2;
+    }
+
+    .user-location-pulse {
+      width: 38px;
+      height: 38px;
+      background: rgba(6, 182, 212, 0.32);
+      border-radius: 9999px;
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      z-index: 1;
+      animation: gpsPulse 2s infinite ease-out;
+    }
+
+    @keyframes gpsPulse {
+      0% {
+        transform: scale(0.55);
+        opacity: 0.95;
+      }
+      100% {
+        transform: scale(2.25);
+        opacity: 0;
+      }
+    }
+
+    /* Animated Route Line */
+    .animated-route-line {
+      stroke-dasharray: 10, 10;
+      animation: routeDash 28s linear infinite;
+    }
+
+    @keyframes routeDash {
+      to {
+        stroke-dashoffset: -1000;
+      }
+    }
+
+    /* Leaflet attribution styling */
+    .leaflet-control-attribution {
+      font-size: 10px !important;
+      background: rgba(15, 23, 42, 0.75) !important;
+      color: #94A3B8 !important;
+      backdrop-filter: blur(4px);
+      border-radius: 8px 0 0 0;
+      padding: 2px 8px !important;
+    }
+    .leaflet-control-attribution a {
+      color: #CBD5E1 !important;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden select-none bg-[#F8FAFC] dark:bg-obsidian text-slate-900 dark:text-slate-100 smooth-transition">
+
+  <!-- Main App Container -->
+  <div class="relative w-full h-full flex flex-col md:flex-row overflow-hidden">
+
+    <!-- ================= LEFT SIDEBAR / MOBILE BOTTOM SHEET ================= -->
+    <aside id="sidebarPanel"
+      class="smooth-transition z-30 w-full md:w-[450px] lg:w-[470px] bg-white/95 dark:bg-panel/95 backdrop-blur-2xl border-t md:border-t-0 md:border-r border-slate-200/80 dark:border-slate-800/90 flex flex-col shadow-dark-glow
+             fixed md:relative bottom-0 left-0 h-[58vh] md:h-full rounded-t-3xl md:rounded-none">
+
+      <!-- Mobile Drag Handle / Expand Toggle -->
+      <div id="mobileSheetToggle" onclick="toggleMobileSheetHeight()"
+        class="md:hidden flex flex-col items-center justify-center pt-2.5 pb-1 cursor-pointer active:opacity-70">
+        <div class="w-10 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mb-1"></div>
+        <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">แตะเพื่อขยาย / ย่อรายการที่พักและผู้ประสานงาน</span>
+      </div>
+
+      <!-- Top Header Section with "งานกีฬาคชรัตน์เกมส์" Logo -->
+      <div class="px-5 pt-3 md:pt-4 pb-3.5 border-b border-slate-200/70 dark:border-slate-800/80">
+        <div class="flex items-center justify-between gap-3">
+          <!-- Logo + Event Title -->
+          <div class="flex items-center gap-3 min-w-0">
+            <div
+              title="งานกีฬาคชรัตน์เกมส์ จังหวัดสุรินทร์"
+              class="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 via-amber-500/10 to-slate-900 border border-amber-500/40 flex items-center justify-center shrink-0 shadow-gold-glow overflow-hidden">
+
+              <!-- Stylized SVG Emblem for "งานกีฬาคชรัตน์เกมส์" (Surin Royal Elephant + Sports Torch) -->
+              <div id="defaultLogoSvg" class="w-9 h-9 flex items-center justify-center">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                  <!-- Outer Victory Wreath / Ring -->
+                  <circle cx="32" cy="32" r="29" stroke="url(#goldGrad)" stroke-width="2" stroke-dasharray="4 2" opacity="0.75"/>
+                  <circle cx="32" cy="32" r="25" fill="url(#bgGrad)" stroke="url(#goldGrad)" stroke-width="1.5"/>
+                  <!-- Crown / Flame Torch on Top -->
+                  <path d="M32 9C34.5 13 37 15.5 35 19.5C33.5 22 30.5 22 29 19.5C27 15.5 29.5 13 32 9Z" fill="url(#flameGrad)"/>
+                  <!-- Stylized Royal Elephant Head & Trunk (คชรัตน์) -->
+                  <path d="M20 26C16.5 26 14 29 14 33C14 37.5 17 40.5 21 40.5V31C21 28 23.5 25 27 25H37C40.5 25 43 28 43 31V40.5C47 40.5 50 37.5 50 33C50 29 47.5 26 44 26" stroke="url(#goldGrad)" stroke-width="2.4" stroke-linecap="round"/>
+                  <path d="M25 24C25 20.5 28 18 32 18C36 18 39 20.5 39 24V34C39 37 36.5 39.5 34 40.5V46C34 48.5 32 50 29.5 50C27.5 50 26 48.5 26 46.5" stroke="#F8FAFC" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <!-- Golden Tusks -->
+                  <path d="M23 36C25 39 27.5 40 30 39" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round"/>
+                  <path d="M41 36C39 39 36.5 40 34 39" stroke="#FBBF24" stroke-width="2.5" stroke-linecap="round"/>
+                  <defs>
+                    <linearGradient id="goldGrad" x1="10" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FDE68A"/>
+                      <stop offset="0.5" stop-color="#F59E0B"/>
+                      <stop offset="1" stop-color="#B45309"/>
+                    </linearGradient>
+                    <linearGradient id="flameGrad" x1="32" y1="9" x2="32" y2="22" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FEF08A"/>
+                      <stop offset="1" stop-color="#EA580C"/>
+                    </linearGradient>
+                    <linearGradient id="bgGrad" x1="32" y1="7" x2="32" y2="57" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#1E293B"/>
+                      <stop offset="1" stop-color="#0F172A"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-[10px] font-bold tracking-wide">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                  KHATCHARAT GAMES
+                </span>
+                <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 hidden sm:inline">• จ.สุรินทร์</span>
+              </div>
+              <h1 class="text-base md:text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate mt-0.5">
+                งานกีฬาคชรัตน์เกมส์
+              </h1>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                แผนที่ที่พักและผู้ประสานงานแต่ละวิทยาลัย
+              </p>
+            </div>
+          </div>
+
+          <!-- Right Controls: Theme Toggle & Fit All -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="toggleThemeMode()"
+              id="themeToggleBtn"
+              title="สลับโหมดมืด / โหมดสว่าง"
+              class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 border border-slate-200/80 dark:border-slate-700/80 smooth-transition active:scale-95">
+              <!-- Moon / Sun Icon -->
+              <svg id="themeIconDark" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+              </svg>
+              <svg id="themeIconLight" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+            </button>
+
+            <button onclick="fitAllLocations()"
+              title="ดูหมุดที่พักทั้งหมดบนแผนที่"
+              class="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium smooth-transition active:scale-95">
+              <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+              </svg>
+              <span class="hidden sm:inline">ดูทั้งหมด</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Current Location (GPS Only) Control Bar -->
+        <div class="mt-3 p-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-500 dark:text-cyan-400 flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400">ตำแหน่งของคุณ:</span>
+                  <span id="gpsModeBadge" class="px-1.5 py-0.2 bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 rounded text-[10px] font-semibold">
+                    GPS ปัจจุบัน
+                  </span>
+                </div>
+                <p id="userLocationText" class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                  กดปุ่ม GPS เพื่อระบุตำแหน่งปัจจุบันของคุณ
+                </p>
+              </div>
+            </div>
+
+            <!-- Single GPS Button Only -->
+            <div class="flex items-center shrink-0">
+              <button onclick="requestRealGPS()"
+                id="btnLocateMe"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow-sm smooth-transition active:scale-95">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>GPS ปัจจุบัน</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Input -->
+          <div class="relative mt-0.5">
+            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              id="searchInput"
+              type="text"
+              oninput="handleSearchAndFilter()"
+              placeholder="ค้นหาวิทยาลัย, โรงแรม, ชื่ออาจารย์ หรือ นักศึกษาผู้ประสานงาน..."
+              class="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 smooth-transition"
+            />
+            <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Date & Special Filters -->
+        <div class="mt-3 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 overflow-x-auto custom-scroll pb-1">
+            <button onclick="setFilter('ALL')" data-filter="ALL"
+              class="filter-pill active px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap smooth-transition bg-amber-500 text-slate-950 shadow-sm">
+              ทั้งหมด (8 แห่ง)
+            </button>
+            <button onclick="setFilter('DAY_5')" data-filter="DAY_5"
+              class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+              วันที่ 5
+            </button>
+            <button onclick="setFilter('DAY_6')" data-filter="DAY_6"
+              class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+              วันที่ 6
+            </button>
+            <button onclick="setFilter('DAY_7')" data-filter="DAY_7"
+              class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+              วันที่ 7
+            </button>
+            <button onclick="setFilter('MULTI')" data-filter="MULTI"
+              class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap smooth-transition bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25">
+              วพ.ศรีมหาสารคาม (พัก 2 ที่)
+            </button>
+          </div>
+        </div>
+
+        <!-- Sort & Count Subbar -->
+        <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+          <span id="resultCountLabel">แสดง 7 วิทยาลัย (8 โรงแรมที่พัก)</span>
+          <div class="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
+            <button id="sortDefaultBtn" onclick="setSortMode('default')"
+              class="px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-800 dark:text-amber-400 shadow-sm font-semibold smooth-transition">
+              ตามวิทยาลัย
+            </button>
+            <button id="sortDistanceBtn" onclick="setSortMode('distance')"
+              class="px-2 py-0.5 rounded-md text-slate-500 dark:text-slate-400 font-medium smooth-transition">
+              ใกล้ฉันที่สุด
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accommodation Cards List -->
+      <div id="cardsContainer" class="flex-1 overflow-y-auto custom-scroll p-4 space-y-3.5 bg-slate-50/60 dark:bg-obsidian/50">
+        <!-- Populated dynamically via JS -->
+      </div>
+
+      <!-- Subtle Minimalist Footer -->
+      <div class="px-5 py-2.5 bg-white dark:bg-panel border-t border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+        <span>ระบบนำทางและข้อมูลผู้ประสานงานประจำวิทยาลัย</span>
+        <span class="font-semibold text-amber-500">คชรัตน์เกมส์ • สุรินทร์</span>
+      </div>
+    </aside>
+
+    <!-- ================= MAIN INTERACTIVE MAP AREA ================= -->
+    <main class="relative flex-1 h-full w-full bg-slate-100 overflow-hidden">
+
+      <!-- Top Floating Map Bar -->
+      <div class="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between pointer-events-none gap-2">
+
+        <!-- Left Floating Status / Pick Mode Banner -->
+        <div class="pointer-events-auto flex items-center gap-2">
+          <div id="mapStatusBanner"
+            class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-dark-glow border border-slate-200/80 dark:border-slate-700/80 flex items-center gap-2.5">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+            </span>
+            <span id="mapBannerText" class="text-xs font-medium text-slate-700 dark:text-slate-200">
+              แตะเลือกวิทยาลัยเพื่อดูเส้นทางและรายชื่อผู้ประสานงาน (อาจารย์ 2 / นักศึกษา 2)
+            </span>
+          </div>
+        </div>
+
+        <!-- Right Map Layer Switcher (Google Road Map / Google Satellite Only - No Dark Map) -->
+        <div class="pointer-events-auto flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-1 rounded-2xl shadow-dark-glow border border-slate-200/70 dark:border-slate-700/80">
+          <button onclick="switchMapLayer('googleStreets')" id="layerBtn-googleStreets"
+            class="map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 smooth-transition">
+            แผนที่ปกติ (Google Maps)
+          </button>
+          <button onclick="switchMapLayer('googleHybrid')" id="layerBtn-googleHybrid"
+            class="map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 smooth-transition">
+            ดาวเทียม (Satellite)
+          </button>
+        </div>
+      </div>
+
+      <!-- Floating Active Route Navigation Card (Bottom Overlay on Map) -->
+      <div id="routeOverlayCard"
+        class="hidden absolute bottom-[60vh] md:bottom-6 left-4 right-4 md:left-6 md:right-6 max-w-2xl mx-auto z-20 pointer-events-auto smooth-transition">
+        <div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl rounded-3xl shadow-dark-glow border border-slate-200/80 dark:border-slate-700/80 p-4 md:p-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <!-- Left Info -->
+            <div class="flex items-start gap-3.5 min-w-0">
+              <div id="routeCardColorIcon"
+                class="w-11 h-11 rounded-2xl flex items-center justify-center text-white font-bold shrink-0 shadow-md"
+                style="background-color: #3B82F6;">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                </svg>
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                  <span id="routeCardCollege" class="text-xs font-bold text-amber-400 uppercase tracking-wide">
+                    วพบ. นครราชสีมา
+                  </span>
+                  <span id="routeCardDateBadge" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300">
+                    เข้าพักทุกวัน
+                  </span>
+                </div>
+                <h3 id="routeCardHotel" class="text-base md:text-lg font-bold text-slate-900 dark:text-white truncate">
+                  Seven Bee Boutique Hotel
+                </h3>
+                <p id="routeCardCoordinator" class="text-xs text-cyan-600 dark:text-cyan-400 font-medium truncate mt-0.5">
+                  ผู้ประสานงาน: อ.ผู้ประสานงาน วพบ.นครราชสีมา (081-234-5601)
+                </p>
+              </div>
+            </div>
+
+            <!-- Distance & Duration Stats -->
+            <div class="flex items-center gap-2.5 sm:border-l sm:border-slate-200 dark:sm:border-slate-800 sm:pl-4 shrink-0">
+              <div class="bg-cyan-500/10 border border-cyan-500/25 px-3.5 py-2 rounded-2xl text-center min-w-[82px]">
+                <div id="routeDistanceVal" class="text-base font-bold text-cyan-600 dark:text-cyan-400">1.2 กม.</div>
+                <div class="text-[10px] font-medium text-cyan-600/80 dark:text-cyan-300/80">ระยะทาง</div>
+              </div>
+              <div class="bg-amber-500/10 border border-amber-500/25 px-3.5 py-2 rounded-2xl text-center min-w-[82px]">
+                <div id="routeDurationVal" class="text-base font-bold text-amber-600 dark:text-amber-400">3 นาที</div>
+                <div class="text-[10px] font-medium text-amber-600/80 dark:text-amber-300/80">เวลาเดินทาง</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sibling Hotel Switcher (Shown specifically for วพ.ศรีมหาสารคาม which has 2 hotels) -->
+          <div id="siblingHotelBanner" class="hidden mt-3 px-3.5 py-2 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+              <span id="siblingHotelText">วพ.ศรีมหาสารคาม มีที่พักอีกแห่ง: THE HUB Hotel (วันที่ 6, 7)</span>
+            </div>
+            <button id="siblingHotelBtn"
+              class="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-[11px] font-bold shrink-0 smooth-transition">
+              สลับดูอีกแห่ง
+            </button>
+          </div>
+
+          <!-- Action Buttons Row -->
+          <div class="mt-3.5 pt-3 border-t border-slate-200/70 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <a id="googleMapsDirectLink"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-gold-glow smooth-transition active:scale-95">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span>เปิดนำทาง Google Maps</span>
+              </a>
+
+              <a id="routeCardCallBtn"
+                href="tel:0812345601"
+                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-semibold smooth-transition active:scale-95">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                </svg>
+                <span>โทรหาผู้ประสานงาน</span>
+              </a>
+
+              <button onclick="copySelectedCoordinates()"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium smooth-transition active:scale-95">
+                <span>คัดลอกพิกัด</span>
+              </button>
+            </div>
+
+            <button onclick="clearActiveRoute()"
+              class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 smooth-transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+              <span>ปิด</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaflet Map Container -->
+      <div id="map" class="w-full h-full z-10"></div>
+    </main>
+
+    <!-- Minimalist Toast Notification -->
+    <div id="toastNotification"
+      class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 -translate-y-3 smooth-transition">
+      <div class="bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-2xl shadow-dark-glow flex items-center gap-2.5 text-xs font-medium border border-slate-700">
+        <span id="toastDot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+        <span id="toastMessage">อัปเดตข้อมูลเรียบร้อยแล้ว</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= APPLICATION JAVASCRIPT ================= -->
+  <script>
+    /**
+     * ตั้งค่าชั้นแผนที่มาตรฐาน Google Maps (สว่าง คมชัด อ่านง่าย)
+     */
+    const TILE_LAYERS = {
+      googleStreets: {
+        url: 'https://mt1.google.com/vt/lyrs=m&hl=th&x={x}&y={y}&z={z}',
+        attribution: '&copy; Google Maps'
+      },
+      googleHybrid: {
+        url: 'https://mt1.google.com/vt/lyrs=y&hl=th&x={x}&y={y}&z={z}',
+        attribution: '&copy; Google Maps Satellite'
+      }
+    };
+
+    /**
+     * ข้อมูลที่พักและผู้ประสานงาน (อาจารย์ 2 คน และ นักศึกษา 2 คน) ของแต่ละวิทยาลัยในจังหวัดสุรินทร์
+     * ครบทั้ง 7 วิทยาลัย (8 โรงแรมที่พัก เนื่องจาก วพ.ศรีมหาสารคาม พัก 2 แห่ง)
+     */
+    const ACCOMMODATIONS = [
+      {
+        id: 'korat-sevenbee',
+        collegeShort: 'วพบ. นครราชสีมา',
+        collegeFull: 'วิทยาลัยพยาบาลบรมราชชนนี นครราชสีมา',
+        hotelName: 'Seven Bee Boutique Hotel - Surin',
+        hotelNameTh: 'โรงแรมเซเว่นบี บูทีค โฮเทล สุรินทร์',
+        address: '77/7 หมู่ 13 ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.877165976590945,
+        lng: 103.50993747534132,
+        mapUrl: 'https://maps.app.goo.gl/Zbj8DdS4EBb515f46',
+        placeId: 'ChIJL_WxnUXiGTERxXt0I4vCi3g',
+        dates: [5, 6, 7],
+        dateLabel: 'เข้าพักทุกวัน (5-7)',
+        isMultiStay: false,
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (วพบ.โคราช)', phone: '081-234-5601' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (วพบ.โคราช)', phone: '081-234-5602' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (วพบ.โคราช)', phone: '091-111-2101' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (วพบ.โคราช)', phone: '091-111-2102' }
+        ],
+        hotelPhone: '089-355-5777',
+        color: '#3B82F6', // Blue
+        keywords: 'โคราช นครราชสีมา seven bee เซเว่นบี'
+      },
+      {
+        id: 'sanpasit-maneerote',
+        collegeShort: 'วพบ. สรรพสิทธิประสงค์',
+        collegeFull: 'วิทยาลัยพยาบาลบรมราชชนนี สรรพสิทธิประสงค์',
+        hotelName: 'โรงแรมมณีโรจน์ (Maneerote Hotel Surin)',
+        hotelNameTh: 'โรงแรมมณีโรจน์ สุรินทร์',
+        address: '11/1 ซอยปอยตังกอ ต.ในเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.887634650107318,
+        lng: 103.48600963606181,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJ2y3KBsjjGTERk_Qd2pZkmwI',
+        placeId: 'ChIJ2y3KBsjjGTERk_Qd2pZkmwI',
+        dates: [5, 6, 7],
+        dateLabel: 'เข้าพักทุกวัน (5-7)',
+        isMultiStay: false,
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (สรรพสิทธิฯ)', phone: '089-456-7801' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (สรรพสิทธิฯ)', phone: '089-456-7802' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (สรรพสิทธิฯ)', phone: '092-222-3201' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (สรรพสิทธิฯ)', phone: '092-222-3202' }
+        ],
+        hotelPhone: '044-514-569',
+        color: '#10B981', // Emerald
+        keywords: 'สรรพสิทธิประสงค์ อุบล มณีโรจน์ maneerote'
+      },
+      {
+        id: 'scphub-thephant',
+        collegeShort: 'วสส. อุบลราชธานี',
+        collegeFull: 'วิทยาลัยการสาธารณสุขสิรินธร จ.อุบลราชธานี',
+        hotelName: 'The Phant Hotel',
+        hotelNameTh: 'โรงแรมเดอะ พันธ์ สุรินทร์',
+        address: 'ถ.สุรินทร์-ศีขรภูมิ ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.878337484214407,
+        lng: 103.52724990924254,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJEUsV8ETiGTERQRpz2QaDFbk',
+        placeId: 'ChIJEUsV8ETiGTERQRpz2QaDFbk',
+        dates: [5, 6, 7],
+        dateLabel: 'เข้าพักทุกวัน (5-7)',
+        isMultiStay: false,
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (วสส.อุบล)', phone: '086-321-9901' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (วสส.อุบล)', phone: '086-321-9902' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (วสส.อุบล)', phone: '093-333-4301' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (วสส.อุบล)', phone: '093-333-4302' }
+        ],
+        hotelPhone: '089-968-5669',
+        color: '#A855F7', // Purple
+        keywords: 'วสส อุบล the phant เดอะพันธ์ เดอะ พันธ์'
+      },
+      {
+        id: 'srimaha-atta',
+        collegeShort: 'วพ. ศรีมหาสารคาม (แห่งที่ 1)',
+        collegeFull: 'วิทยาลัยพยาบาลศรีมหาสารคาม',
+        hotelName: 'ATTA HOTEL SURIN (โรงแรมแอตต้า)',
+        hotelNameTh: 'พักวันที่ 5, 6, 7 • โรงแรมแอตต้า สุรินทร์',
+        address: '64 ถ.ศรีพัฒนา ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.865090361824741,
+        lng: 103.49982966756554,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJn6EQw4bjGTERTuxcP3bv8tE',
+        placeId: 'ChIJn6EQw4bjGTERTuxcP3bv8tE',
+        dates: [5, 6, 7],
+        dateLabel: 'พักวันที่ 5, 6, 7',
+        isMultiStay: true,
+        siblingId: 'srimaha-thehub',
+        siblingText: 'วพ.ศรีมหาสารคาม พักอีกแห่งที่: THE HUB Hotel (วันที่ 6, 7)',
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (ศรีมหาสารคาม)', phone: '082-789-4101' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (ศรีมหาสารคาม)', phone: '082-789-4102' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (ศรีมหาสารคาม)', phone: '094-444-5401' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (ศรีมหาสารคาม)', phone: '094-444-5402' }
+        ],
+        hotelPhone: '063-396-6256',
+        color: '#F59E0B', // Amber Gold
+        keywords: 'ศรีมหาสารคาม สารคาม atta แอตต้า วันที่ 5 6 7'
+      },
+      {
+        id: 'srimaha-thehub',
+        collegeShort: 'วพ. ศรีมหาสารคาม (แห่งที่ 2)',
+        collegeFull: 'วิทยาลัยพยาบาลศรีมหาสารคาม',
+        hotelName: 'THE HUB Hotel (โรงแรมเดอะฮับ)',
+        hotelNameTh: 'พักวันที่ 6, 7 • โรงแรมเดอะฮับ สุรินทร์',
+        address: '42 ซ.ศรีพัฒนา ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.864744513689164,
+        lng: 103.49930293935272,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJ9RTnrlHiGTER6Nf-m1z5iv4',
+        placeId: 'ChIJ9RTnrlHiGTER6Nf-m1z5iv4',
+        dates: [6, 7],
+        dateLabel: 'พักวันที่ 6, 7',
+        isMultiStay: true,
+        siblingId: 'srimaha-atta',
+        siblingText: 'วพ.ศรีมหาสารคาม พักอีกแห่งที่: ATTA Hotel (วันที่ 5, 6, 7)',
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (ศรีมหาสารคาม)', phone: '082-789-4101' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (ศรีมหาสารคาม)', phone: '082-789-4102' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (ศรีมหาสารคาม)', phone: '094-444-5401' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (ศรีมหาสารคาม)', phone: '094-444-5402' }
+        ],
+        hotelPhone: '064-445-9256',
+        color: '#F97316', // Orange
+        keywords: 'ศรีมหาสารคาม สารคาม the hub เดอะฮับ วันที่ 6 7'
+      },
+      {
+        id: 'bcnkk-chalermluck',
+        collegeShort: 'วพบ. ขอนแก่น',
+        collegeFull: 'วิทยาลัยพยาบาลบรมราชชนนี ขอนแก่น',
+        hotelName: 'โรงแรม เฉลิมลักษณ์ (Chaloemlak Hotel)',
+        hotelNameTh: 'โรงแรมเฉลิมลักษณ์ สุรินทร์',
+        address: 'ถ.สุรินทร์-ศีขรภูมิ ต.สลักได อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.8788265996963,
+        lng: 103.53058009901092,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJ5T-Q323iGTERftrpd7DtuJk',
+        placeId: 'ChIJ5T-Q323iGTERftrpd7DtuJk',
+        dates: [5, 6, 7],
+        dateLabel: 'เข้าพักทุกวัน (5-7)',
+        isMultiStay: false,
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (วพบ.ขอนแก่น)', phone: '085-667-8801' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (วพบ.ขอนแก่น)', phone: '085-667-8802' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (วพบ.ขอนแก่น)', phone: '095-555-6501' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (วพบ.ขอนแก่น)', phone: '095-555-6502' }
+        ],
+        hotelPhone: '092-993-9397',
+        color: '#EC4899', // Pink
+        keywords: 'วพบ ขอนแก่น เฉลิมลักษณ์ chaloemlak'
+      },
+      {
+        id: 'scphkk-lanchang',
+        collegeShort: 'วสส. ขอนแก่น',
+        collegeFull: 'วิทยาลัยการสาธารณสุขสิรินธร จ.ขอนแก่น',
+        hotelName: 'โรงแรมล้านช้าง (LAN-CHANG HOTEL)',
+        hotelNameTh: 'โรงแรมล้านช้าง ม.ราชภัฏสุรินทร์',
+        address: 'มหาวิทยาลัยราชภัฏสุรินทร์ ต.นอกเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.859232469088994,
+        lng: 103.48162058722647,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJG8JhriPjGTERxlhWDbTeGZY',
+        placeId: 'ChIJG8JhriPjGTERxlhWDbTeGZY',
+        dates: [5, 6, 7],
+        dateLabel: 'เข้าพักทุกวัน (5-7)',
+        isMultiStay: false,
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (วสส.ขอนแก่น)', phone: '087-901-2301' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (วสส.ขอนแก่น)', phone: '087-901-2302' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (วสส.ขอนแก่น)', phone: '096-666-7601' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (วสส.ขอนแก่น)', phone: '096-666-7602' }
+        ],
+        hotelPhone: '044-514-686',
+        color: '#06B6D4', // Cyan
+        keywords: 'วสส ขอนแก่น ล้านช้าง lan-chang lanchang ราชภัฏ'
+      },
+      {
+        id: 'bcnu-hopinn',
+        collegeShort: 'วพบ. อุดรธานี',
+        collegeFull: 'วิทยาลัยพยาบาลบรมราชชนนี อุดรธานี',
+        hotelName: 'โรงแรมฮ็อป อินน์ สุรินทร์ (HOP INN Surin)',
+        hotelNameTh: 'โรงแรมฮ็อป อินน์ สุรินทร์',
+        address: '5/1 ซอยปอยตังกอ ต.ในเมือง อ.เมืองสุรินทร์ จ.สุรินทร์ 32000',
+        lat: 14.886885767050053,
+        lng: 103.48595677265519,
+        mapUrl: 'https://www.google.com/maps/place//data=!4m2!3m1!19sChIJL8JY_7fjGTEREwWVin7FVmQ',
+        placeId: 'ChIJL8JY_7fjGTEREwWVin7FVmQ',
+        dates: [5, 6, 7],
+        dateLabel: 'เข้าพักทุกวัน (5-7)',
+        isMultiStay: false,
+        teachers: [
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 1 (วพบ.อุดร)', phone: '089-112-3401' },
+          { name: 'อ.ผู้ประสานงาน ท่านที่ 2 (วพบ.อุดร)', phone: '089-112-3402' }
+        ],
+        students: [
+          { name: 'นศ.ผู้ประสานงาน คนที่ 1 (วพบ.อุดร)', phone: '097-777-8701' },
+          { name: 'นศ.ผู้ประสานงาน คนที่ 2 (วพบ.อุดร)', phone: '097-777-8702' }
+        ],
+        hotelPhone: '02-080-2222',
+        color: '#6366F1', // Indigo
+        keywords: 'อุดร อุดรธานี hop inn hopinn ฮ็อปอินน์'
+      }
+    ];
+
+    // Application State
+    let map = null;
+    let currentTileLayer = null;
+    let markersMap = {};
+    let userMarker = null;
+    let routePolyline = null;
+    let routeShadowPolyline = null;
+
+    // User's Current GPS Location State
+    let userLocation = {
+      lat: 14.8820,
+      lng: 103.4936,
+      mode: 'LIVE_GPS',
+      label: 'ตำแหน่งปัจจุบันของคุณ'
+    };
+
+    let selectedId = null;
+    let currentFilter = 'ALL';
+    let currentSort = 'default';
+    let isMobileSheetExpanded = false;
+    let isDarkMode = true;
+
+    /**
+     * Initialize Application on Window Load
+     */
+    window.onload = function () {
+      initMap();
+      updateDistancesFromUser();
+      renderAccommodationCards();
+      renderMapMarkers();
+      requestRealGPS(true);
+    };
+
+    /**
+     * Toggle Dark / Light Mode UI (Map stays clear Google Maps)
+     */
+    function toggleThemeMode() {
+      isDarkMode = !isDarkMode;
+      const htmlEl = document.documentElement;
+      const iconDark = document.getElementById('themeIconDark');
+      const iconLight = document.getElementById('themeIconLight');
+
+      if (isDarkMode) {
+        htmlEl.classList.add('dark');
+        iconDark.classList.remove('hidden');
+        iconLight.classList.add('hidden');
+        showToast('เปลี่ยนแผงควบคุมเป็นโหมดมืด (Dark UI)', '#F59E0B');
+      } else {
+        htmlEl.classList.remove('dark');
+        iconDark.classList.add('hidden');
+        iconLight.classList.remove('hidden');
+        showToast('เปลี่ยนแผงควบคุมเป็นโหมดสว่าง (Light UI)', '#3B82F6');
+      }
+    }
+
+    /**
+     * Initialize Leaflet Map with Clear Google Streets Layer
+     */
+    function initMap() {
+      map = L.map('map', {
+        center: [14.8795, 103.4955],
+        zoom: 14,
+        zoomControl: false
+      });
+
+      L.control.zoom({
+        position: 'bottomright'
+      }).addTo(map);
+
+      // Default to Bright & Clear Google Maps Road Layer
+      switchMapLayer('googleStreets');
+
+      // Add User Current GPS Marker
+      updateUserMarkerOnMap();
+    }
+
+    /**
+     * Switch Map Tile Layer (Google Maps Standard / Google Satellite)
+     */
+    function switchMapLayer(layerKey) {
+      if (!map) return;
+
+      if (currentTileLayer) {
+        map.removeLayer(currentTileLayer);
+      }
+
+      const layerCfg = TILE_LAYERS[layerKey] || TILE_LAYERS.googleStreets;
+      currentTileLayer = L.tileLayer(layerCfg.url, {
+        maxZoom: 20,
+        attribution: layerCfg.attribution
+      }).addTo(map);
+
+      document.querySelectorAll('.map-layer-btn').forEach(btn => {
+        btn.className = 'map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 smooth-transition';
+      });
+      const activeBtn = document.getElementById(`layerBtn-${layerKey}`);
+      if (activeBtn) {
+        activeBtn.className = 'map-layer-btn px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 text-slate-950 smooth-transition';
+      }
+    }
+
+    /**
+     * Create or Update User's Current Position Marker on Map
+     */
+    function updateUserMarkerOnMap() {
+      const userIcon = L.divIcon({
+        className: 'custom-pin-wrapper',
+        html: `
+          <div class="user-location-marker" title="ตำแหน่งปัจจุบันของคุณ">
+            <div class="user-location-pulse"></div>
+            <div class="user-location-core"></div>
+          </div>
+        `,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+
+      if (userMarker) {
+        userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+      } else {
+        userMarker = L.marker([userLocation.lat, userLocation.lng], {
+          icon: userIcon,
+          zIndexOffset: 1000
+        }).addTo(map);
+
+        userMarker.bindTooltip('ตำแหน่งปัจจุบันของคุณ', {
+          direction: 'top',
+          offset: [0, -10],
+          className: 'text-xs font-sans font-medium px-2.5 py-1 rounded-lg shadow-sm'
+        });
+      }
+
+      const badgeEl = document.getElementById('gpsModeBadge');
+      const locTextEl = document.getElementById('userLocationText');
+
+      badgeEl.textContent = 'GPS ปัจจุบัน';
+      badgeEl.className = 'px-1.5 py-0.2 bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30 rounded text-[10px] font-semibold';
+      locTextEl.textContent = `${userLocation.label} (${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)})`;
+    }
+
+    /**
+     * Request Real Browser GPS Location
+     */
+    function requestRealGPS(isSilentInit = false) {
+      const btn = document.getElementById('btnLocateMe');
+      const originalHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>GPS ปัจจุบัน</span>
+      `;
+      btn.innerHTML = `
+        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span>กำลังค้นหา...</span>
+      `;
+
+      if (!navigator.geolocation) {
+        btn.innerHTML = originalHTML;
+        if (!isSilentInit) {
+          showToast('เบราว์เซอร์ของคุณไม่รองรับการดึงตำแหน่ง GPS', '#F59E0B');
+        }
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function (position) {
+          btn.innerHTML = originalHTML;
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          setCustomUserLocation(lat, lng, 'พิกัด GPS ปัจจุบันของคุณ', 'LIVE_GPS');
+          if (!isSilentInit) {
+            showToast('ระบุตำแหน่ง GPS ปัจจุบันสำเร็จ!', '#10B981');
+          }
+
+          if (!selectedId) {
+            map.flyTo([lat, lng], 14, { duration: 1.2 });
+          }
+        },
+        function () {
+          btn.innerHTML = originalHTML;
+          if (!isSilentInit) {
+            map.flyTo([userLocation.lat, userLocation.lng], 14, { duration: 1 });
+            showToast('กรุณาอนุญาตการเข้าถึงตำแหน่ง (GPS) บนเบราว์เซอร์ของคุณ', '#F59E0B');
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    /**
+     * Update User Location State & Recalculate All Routes
+     */
+    function setCustomUserLocation(lat, lng, label, mode) {
+      userLocation = { lat, lng, label, mode };
+      updateUserMarkerOnMap();
+      updateDistancesFromUser();
+      renderAccommodationCards();
+
+      if (selectedId) {
+        const activeItem = ACCOMMODATIONS.find(item => item.id === selectedId);
+        if (activeItem) {
+          drawRouteToHotel(activeItem, true);
+        }
+      }
+    }
+
+    /**
+     * Calculate Haversine Distance & Estimated Road Distance/Time
+     */
+    function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const straightKm = R * c;
+      return straightKm * 1.28;
+    }
+
+    function updateDistancesFromUser() {
+      ACCOMMODATIONS.forEach(item => {
+        const distKm = calculateDistanceKm(userLocation.lat, userLocation.lng, item.lat, item.lng);
+        item.distanceKm = distKm;
+        item.durationMin = Math.max(2, Math.round((distKm / 35) * 60 + 1));
+      });
+    }
+
+    /**
+     * Render Custom Minimalist Pill Markers on Map
+     */
+    function renderMapMarkers() {
+      Object.values(markersMap).forEach(m => map.removeLayer(m));
+      markersMap = {};
+
+      const filteredIds = new Set(getFilteredList().map(i => i.id));
+
+      ACCOMMODATIONS.forEach(item => {
+        if (!filteredIds.has(item.id)) return;
+
+        const isSelected = item.id === selectedId;
+        const dateTagHtml = item.isMultiStay
+          ? `<span class="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-400 text-slate-950">${item.dates.join(',')}</span>`
+          : '';
+
+        const markerHtml = `
+          <div id="pin-${item.id}" class="marker-pill ${isSelected ? 'active-pin' : ''}">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}; box-shadow: 0 0 8px ${item.color};"></span>
+            <div class="flex flex-col leading-tight text-left">
+              <div class="flex items-center">
+                <span class="text-[11px] font-bold tracking-tight">${item.collegeShort}</span>
+                ${dateTagHtml}
+              </div>
+              <span class="pin-subtext text-[10px] font-medium opacity-75">${item.hotelName}</span>
+            </div>
+          </div>
+        `;
+
+        const icon = L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: markerHtml,
+          iconSize: [165, 44],
+          iconAnchor: [0, 0]
+        });
+
+        const marker = L.marker([item.lat, item.lng], {
+          icon: icon,
+          zIndexOffset: isSelected ? 900 : 100
+        }).addTo(map);
+
+        marker.on('click', () => {
+          selectAccommodation(item.id);
+        });
+
+        markersMap[item.id] = marker;
+      });
+    }
+
+    /**
+     * Filter & Sort Logic
+     */
+    function getFilteredList() {
+      const query = (document.getElementById('searchInput')?.value || '').trim().toLowerCase();
+
+      let list = ACCOMMODATIONS.filter(item => {
+        if (currentFilter === 'DAY_5' && !item.dates.includes(5)) return false;
+        if (currentFilter === 'DAY_6' && !item.dates.includes(6)) return false;
+        if (currentFilter === 'DAY_7' && !item.dates.includes(7)) return false;
+        if (currentFilter === 'MULTI' && !item.isMultiStay) return false;
+
+        if (query) {
+          const coordText = [
+            ...item.teachers.map(t => `${t.name} ${t.phone}`),
+            ...item.students.map(s => `${s.name} ${s.phone}`)
+          ].join(' ');
+          const haystack = `${item.collegeShort} ${item.collegeFull} ${item.hotelName} ${item.hotelNameTh} ${item.address} ${coordText} ${item.keywords}`.toLowerCase();
+          return haystack.includes(query);
+        }
+        return true;
+      });
+
+      if (currentSort === 'distance') {
+        list.sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
+      }
+
+      return list;
+    }
+
+    /**
+     * Helper to render a single coordinator row inside a card
+     */
+    function renderPersonRow(person, indexLabel, badgeColorClass, collegeShort) {
+      const cleanTel = (person.phone || '').replace(/[^0-9+]/g, '');
+      const safeName = (person.name || '').replace(/'/g, "\\'");
+      const safePhone = (person.phone || '').replace(/'/g, "\\'");
+      return `
+        <div class="flex items-center justify-between gap-2 py-1 px-2 rounded-lg bg-white/80 dark:bg-slate-950/60 border border-slate-200/60 dark:border-slate-800/80">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${badgeColorClass}">
+              ${indexLabel}
+            </span>
+            <div class="min-w-0">
+              <p class="text-[11px] font-semibold text-slate-800 dark:text-slate-200 truncate">
+                ${person.name}
+              </p>
+              <p class="text-[10px] font-medium text-cyan-600 dark:text-cyan-400">
+                📞 ${person.phone}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <a href="tel:${cleanTel}"
+              title="โทรหา ${person.name}"
+              class="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white border border-emerald-500/25 smooth-transition">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+            </a>
+            <button onclick="copyPhone('${safePhone}', '${safeName} (${collegeShort})')"
+              title="คัดลอกเบอร์โทรศัพท์"
+              class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 smooth-transition">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Render Accommodation Cards with 2 Teachers & 2 Students Coordinator Box
+     */
+    function renderAccommodationCards() {
+      const container = document.getElementById('cardsContainer');
+      const filtered = getFilteredList();
+
+      const uniqueColleges = new Set(filtered.map(i => i.collegeFull)).size;
+      document.getElementById('resultCountLabel').textContent =
+        `แสดง ${uniqueColleges} วิทยาลัย (${filtered.length} โรงแรมที่พัก)`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white dark:bg-cardDark/80 rounded-2xl p-8 text-center border border-slate-200/70 dark:border-slate-800 my-4">
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">ไม่พบข้อมูลที่พักหรือผู้ประสานงาน</p>
+            <p class="text-xs text-slate-400 mt-1">ลองเปลี่ยนคำค้นหา หรือกดดูตัวกรอง "ทั้งหมด"</p>
+            <button onclick="resetFilters()" class="mt-3 px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-500 text-xs font-semibold hover:bg-amber-500/30 smooth-transition">
+              ล้างตัวกรองทั้งหมด
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isSelected = item.id === selectedId;
+        const distText = item.distanceKm < 1
+          ? `${Math.round(item.distanceKm * 1000)} ม.`
+          : `${item.distanceKm.toFixed(1)} กม.`;
+
+        const dateBadgeStyle = item.isMultiStay
+          ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/40'
+          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300';
+
+        const googleNavUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${item.lat},${item.lng}${item.placeId ? `&destination_place_id=${item.placeId}` : ''}&travelmode=driving`;
+        const pinMapUrl = item.mapUrl || `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
+
+        return `
+          <div id="card-${item.id}"
+            onclick="selectAccommodation('${item.id}')"
+            class="group relative bg-white dark:bg-cardDark/90 rounded-2xl p-4 cursor-pointer smooth-transition border
+                   ${isSelected
+                     ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-gold-glow'
+                     : 'border-slate-200/80 dark:border-slate-800/90 hover:border-slate-300 dark:hover:border-slate-700'}">
+
+            <!-- Left Accent Indicator -->
+            <div class="absolute left-0 top-3.5 bottom-3.5 w-1.5 rounded-r-full smooth-transition"
+              style="background-color: ${item.color};"></div>
+
+            <div class="pl-2.5">
+              <!-- Top Row: College Badge + Stay Date Badge -->
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}; box-shadow: 0 0 8px ${item.color};"></span>
+                  <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${item.collegeShort}</span>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${dateBadgeStyle}">
+                  ${item.dateLabel}
+                </span>
+              </div>
+
+              <!-- Hotel Name & Distance -->
+              <div class="flex items-baseline justify-between gap-2 mt-1">
+                <h3 class="text-sm font-bold text-slate-800 dark:text-amber-400 group-hover:text-amber-500 smooth-transition">
+                  ${item.hotelName}
+                </h3>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <span class="text-xs font-bold text-cyan-600 dark:text-cyan-400">${distText}</span>
+                  <span class="text-[11px] text-slate-400">• ~${item.durationMin} นาที</span>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between gap-2 mt-0.5">
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                  ${item.address}
+                </p>
+                ${item.hotelPhone ? `<span class="text-[10px] text-slate-400 dark:text-slate-500 shrink-0">รร. ${item.hotelPhone}</span>` : ''}
+              </div>
+
+              <!-- Coordinator Roster Box: อาจารย์ 2 คน & นักศึกษา 2 คน -->
+              <div onclick="event.stopPropagation();"
+                class="mt-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200/70 dark:border-slate-800/90 space-y-2">
+
+                <!-- Header (Read-Only) -->
+                <div class="flex items-center justify-between">
+                  <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    รายชื่อผู้ประสานงาน (อ. 2 / นศ. 2)
+                  </span>
+                </div>
+
+                <!-- อาจารย์ผู้ประสานงาน (2 ท่าน) -->
+                <div class="space-y-1">
+                  <div class="text-[10px] font-bold text-amber-600 dark:text-amber-400/90 px-0.5">
+                    อาจารย์ผู้ประสานงาน (2 ท่าน)
+                  </div>
+                  ${renderPersonRow(item.teachers[0], 'อ.1', 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30', item.collegeShort)}
+                  ${renderPersonRow(item.teachers[1], 'อ.2', 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/30', item.collegeShort)}
+                </div>
+
+                <!-- นักศึกษาผู้ประสานงาน (2 ท่าน) -->
+                <div class="space-y-1 pt-1 border-t border-slate-200/60 dark:border-slate-800/80">
+                  <div class="text-[10px] font-bold text-cyan-600 dark:text-cyan-400/90 px-0.5">
+                    นักศึกษาผู้ประสานงาน (2 ท่าน)
+                  </div>
+                  ${renderPersonRow(item.students[0], 'นศ.1', 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30', item.collegeShort)}
+                  ${renderPersonRow(item.students[1], 'นศ.2', 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30', item.collegeShort)}
+                </div>
+              </div>
+
+              <!-- Card Footer Actions -->
+              <div class="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                <button
+                  onclick="event.stopPropagation(); selectAccommodation('${item.id}')"
+                  class="inline-flex items-center gap-1.5 text-xs font-semibold ${isSelected ? 'text-amber-500' : 'text-slate-600 dark:text-slate-400 group-hover:text-amber-400'} smooth-transition">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+                  </svg>
+                  <span>${isSelected ? 'กำลังแสดงเส้นทาง' : 'เส้นทางบนแผนที่'}</span>
+                </button>
+
+                <div class="flex items-center gap-1.5">
+                  <a href="${pinMapUrl}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onclick="event.stopPropagation();"
+                    title="เปิดลิงก์หมุดโรงแรมบน Google Maps"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold smooth-transition">
+                    <svg class="w-3 h-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>หมุดโรงแรม</span>
+                  </a>
+
+                  <a href="${googleNavUrl}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onclick="event.stopPropagation();"
+                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500 text-amber-600 dark:text-amber-300 hover:text-slate-950 text-[11px] font-bold smooth-transition">
+                    <span>นำทาง</span>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * Copy Coordinator Phone Number
+     */
+    function copyPhone(phone, collegeName) {
+      const textArea = document.createElement('textarea');
+      textArea.value = phone;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast(`คัดลอกเบอร์ ${phone} (${collegeName}) แล้ว`, '#06B6D4');
+      } catch (err) {
+        showToast('ไม่สามารถคัดลอกเบอร์โทรได้', '#EF4444');
+      }
+      document.body.removeChild(textArea);
+    }
+
+    /**
+     * Select an Accommodation Card/Pin & Draw Live Route from User Location
+     */
+    function selectAccommodation(id) {
+      selectedId = id;
+      const item = ACCOMMODATIONS.find(i => i.id === id);
+      if (!item) return;
+
+      renderAccommodationCards();
+      renderMapMarkers();
+
+      const cardEl = document.getElementById(`card-${id}`);
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      drawRouteToHotel(item, false);
+    }
+
+    /**
+     * Fetch OSRM Driving Route & Draw Smooth Polyline on Map
+     */
+    async function drawRouteToHotel(item, keepZoom) {
+      if (routePolyline) map.removeLayer(routePolyline);
+      if (routeShadowPolyline) map.removeLayer(routeShadowPolyline);
+
+      const overlay = document.getElementById('routeOverlayCard');
+      overlay.classList.remove('hidden');
+
+      document.getElementById('routeCardColorIcon').style.backgroundColor = item.color;
+      document.getElementById('routeCardCollege').textContent = item.collegeShort;
+      document.getElementById('routeCardCollege').style.color = item.color;
+      document.getElementById('routeCardDateBadge').textContent = item.dateLabel;
+      document.getElementById('routeCardHotel').textContent = item.hotelName;
+      document.getElementById('routeCardCoordinator').textContent =
+        `อ.: ${item.teachers[0].name} (${item.teachers[0].phone}) | นศ.: ${item.students[0].name} (${item.students[0].phone})`;
+
+      const cleanTel = (item.teachers[0]?.phone || '').replace(/[^0-9+]/g, '');
+      document.getElementById('routeCardCallBtn').href = `tel:${cleanTel}`;
+
+      const googleNavUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${item.lat},${item.lng}${item.placeId ? `&destination_place_id=${item.placeId}` : ''}&travelmode=driving`;
+      document.getElementById('googleMapsDirectLink').href = googleNavUrl;
+
+      const siblingBanner = document.getElementById('siblingHotelBanner');
+      if (item.isMultiStay && item.siblingId) {
+        siblingBanner.classList.remove('hidden');
+        document.getElementById('siblingHotelText').textContent = item.siblingText;
+        document.getElementById('siblingHotelBtn').onclick = () => selectAccommodation(item.siblingId);
+      } else {
+        siblingBanner.classList.add('hidden');
+      }
+
+      const fallbackDistText = item.distanceKm < 1
+        ? `${Math.round(item.distanceKm * 1000)} ม.`
+        : `${item.distanceKm.toFixed(1)} กม.`;
+      document.getElementById('routeDistanceVal').textContent = fallbackDistText;
+      document.getElementById('routeDurationVal').textContent = `${item.durationMin} นาที`;
+
+      if (!keepZoom) {
+        const bounds = L.latLngBounds(
+          [userLocation.lat, userLocation.lng],
+          [item.lat, item.lng]
+        );
+        map.flyToBounds(bounds, {
+          paddingTopLeft: [60, 80],
+          paddingBottomRight: [60, 230],
+          maxZoom: 16,
+          duration: 1.1
+        });
+      }
+
+      try {
+        const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${userLocation.lng},${userLocation.lat};${item.lng},${item.lat}?overview=full&geometries=geojson`;
+        const response = await fetch(osrmUrl);
+        const data = await response.json();
+
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const coords = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+
+          routeShadowPolyline = L.polyline(coords, {
+            color: item.color,
+            weight: 10,
+            opacity: 0.28,
+            lineCap: 'round',
+            lineJoin: 'round'
+          }).addTo(map);
+
+          routePolyline = L.polyline(coords, {
+            color: item.color,
+            weight: 5,
+            opacity: 0.98,
+            lineCap: 'round',
+            lineJoin: 'round',
+            className: 'animated-route-line'
+          }).addTo(map);
+
+          const realKm = route.distance / 1000;
+          const realMin = Math.max(1, Math.round(route.duration / 60));
+
+          item.distanceKm = realKm;
+          item.durationMin = realMin;
+
+          document.getElementById('routeDistanceVal').textContent =
+            realKm < 1 ? `${Math.round(route.distance)} ม.` : `${realKm.toFixed(1)} กม.`;
+          document.getElementById('routeDurationVal').textContent = `${realMin} นาที`;
+          return;
+        }
+      } catch (err) {}
+
+      const fallbackCoords = [
+        [userLocation.lat, userLocation.lng],
+        [item.lat, item.lng]
+      ];
+      routePolyline = L.polyline(fallbackCoords, {
+        color: item.color,
+        weight: 4,
+        opacity: 0.9,
+        dashArray: '8, 8'
+      }).addTo(map);
+    }
+
+    /**
+     * Clear Active Route & Reset Overlay
+     */
+    function clearActiveRoute() {
+      selectedId = null;
+      if (routePolyline) map.removeLayer(routePolyline);
+      if (routeShadowPolyline) map.removeLayer(routeShadowPolyline);
+      document.getElementById('routeOverlayCard').classList.add('hidden');
+      renderAccommodationCards();
+      renderMapMarkers();
+    }
+
+    /**
+     * Fit All Accommodation Pins & User Location in View
+     */
+    function fitAllLocations() {
+      clearActiveRoute();
+      const filtered = getFilteredList();
+      const points = filtered.map(i => [i.lat, i.lng]);
+      points.push([userLocation.lat, userLocation.lng]);
+
+      if (points.length > 0) {
+        const bounds = L.latLngBounds(points);
+        map.flyToBounds(bounds, {
+          padding: [60, 60],
+          maxZoom: 15,
+          duration: 1.1
+        });
+      }
+    }
+
+    /**
+     * Filter & Search UI Handlers
+     */
+    function setFilter(filterKey) {
+      currentFilter = filterKey;
+      document.querySelectorAll('.filter-pill').forEach(btn => {
+        const key = btn.getAttribute('data-filter');
+        if (key === filterKey) {
+          btn.className = 'filter-pill active px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap smooth-transition bg-amber-500 text-slate-950 shadow-sm';
+        } else if (key === 'MULTI') {
+          btn.className = 'filter-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap smooth-transition bg-amber-500/15 text-amber-600 dark:text-amber-300 border border-amber-500/30 hover:bg-amber-500/25';
+        } else {
+          btn.className = 'filter-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap smooth-transition bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700';
+        }
+      });
+
+      handleSearchAndFilter();
+    }
+
+    function setSortMode(mode) {
+      currentSort = mode;
+      const defaultBtn = document.getElementById('sortDefaultBtn');
+      const distBtn = document.getElementById('sortDistanceBtn');
+
+      if (mode === 'distance') {
+        distBtn.className = 'px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-800 dark:text-amber-400 shadow-sm font-semibold smooth-transition';
+        defaultBtn.className = 'px-2 py-0.5 rounded-md text-slate-500 dark:text-slate-400 font-medium smooth-transition';
+      } else {
+        defaultBtn.className = 'px-2 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-800 dark:text-amber-400 shadow-sm font-semibold smooth-transition';
+        distBtn.className = 'px-2 py-0.5 rounded-md text-slate-500 dark:text-slate-400 font-medium smooth-transition';
+      }
+
+      renderAccommodationCards();
+    }
+
+    function handleSearchAndFilter() {
+      const val = document.getElementById('searchInput').value;
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (val.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+
+      renderAccommodationCards();
+      renderMapMarkers();
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      handleSearchAndFilter();
+    }
+
+    function resetFilters() {
+      document.getElementById('searchInput').value = '';
+      setFilter('ALL');
+    }
+
+    /**
+     * Copy ONLY Selected Hotel Coordinates (lat, lng) to Clipboard
+     */
+    function copySelectedCoordinates() {
+      const item = ACCOMMODATIONS.find(i => i.id === selectedId);
+      if (!item) return;
+
+      const textToCopy = `${item.lat}, ${item.lng}`;
+
+      const textArea = document.createElement('textarea');
+      textArea.value = textToCopy;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        showToast(`คัดลอกพิกัด ${textToCopy} แล้ว`, '#10B981');
+      } catch (err) {
+        showToast('ไม่สามารถคัดลอกพิกัดได้', '#EF4444');
+      }
+      document.body.removeChild(textArea);
+    }
+
+    /**
+     * Mobile Bottom Sheet Expand/Collapse Toggle
+     */
+    function toggleMobileSheetHeight() {
+      const panel = document.getElementById('sidebarPanel');
+      const overlay = document.getElementById('routeOverlayCard');
+      isMobileSheetExpanded = !isMobileSheetExpanded;
+
+      if (isMobileSheetExpanded) {
+        panel.classList.remove('h-[58vh]');
+        panel.classList.add('h-[84vh]');
+        overlay.classList.replace('bottom-[60vh]', 'bottom-[86vh]');
+      } else {
+        panel.classList.remove('h-[84vh]');
+        panel.classList.add('h-[58vh]');
+        overlay.classList.replace('bottom-[86vh]', 'bottom-[60vh]');
+      }
+      setTimeout(() => map.invalidateSize(), 350);
+    }
+
+    /**
+     * Minimalist Toast Helper
+     */
+    let toastTimeout = null;
+    function showToast(message, dotColor = '#F59E0B') {
+      const toast = document.getElementById('toastNotification');
+      const msgEl = document.getElementById('toastMessage');
+      const dotEl = document.getElementById('toastDot');
+
+      msgEl.textContent = message;
+      dotEl.style.backgroundColor = dotColor;
+
+      toast.classList.remove('opacity-0', '-translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-3');
+      }, 3200);
+    }
+  </script>
+</body>
+</html>
